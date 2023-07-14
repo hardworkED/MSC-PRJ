@@ -1,0 +1,10 @@
+opencv-python
+matplotlib
+numpy
+torch
+torchvision
+tensorflow
+scipy
+tqdm
+mtcnn
+facenet-pytorch
