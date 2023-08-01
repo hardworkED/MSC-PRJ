@@ -113,4 +113,9 @@ class AMIGOS(data.Dataset):
                 'AR': np.asarray([data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['AR'][segment]['arousal'], data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['AR'][segment]['valence']]),
                 'ECG': np.asarray([np.asarray(data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['ECG_L'][segment]), np.asarray(data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['ECG_R'][segment])])
             } for segment in data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['AR'].keys()}
+            # exclude video if there is nan value in ECG
+            ECGs = [dt[uid][vid][seg]['ECG'] for seg in dt[uid][vid].keys()]
+            ECGs = np.array(ECGs).ravel()
+            if any(np.isnan(ECGs)):
+                del dt[uid][vid]
         return dt

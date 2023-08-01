@@ -41,9 +41,9 @@ def logging(mode, output_name, log_writer, loss, mae, mse, rmse, pcc, ccc, idx):
     log_writer.add_scalar('{}-MSE/{}'.format(output_name, mode), mse, idx)
     log_writer.add_scalar('{}-RMSE/{}'.format(output_name, mode), rmse, idx)
     if len(ccc) > 1:
-        for c, p in zip(ccc, pcc):
-            log_writer.add_scalar('{}-CCC/{}'.format(attrs[output_name], mode), c, idx)
-            log_writer.add_scalar('{}-PCC/{}'.format(attrs[output_name], mode), p, idx)
+        for i in range(len(attrs[output_name])):
+            log_writer.add_scalar('{}-PCC/{}'.format(attrs[output_name][i], mode), pcc[i], idx)
+            log_writer.add_scalar('{}-CCC/{}'.format(attrs[output_name][i], mode), ccc[i], idx)
     else:
         log_writer.add_scalar('{}-PCC/{}'.format(output_name, mode), pcc, idx)
         log_writer.add_scalar('{}-CCC/{}'.format(output_name, mode), ccc, idx)
