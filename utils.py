@@ -88,24 +88,28 @@ def run_val(model, test_loader, batch_size):
             outputs = model(inputs)
             labels = [labels1, labels2]
 
-            y_pred_AR = torch.cat((y_pred_AR, outputs[0]), 1)
-            y_true_AR = torch.cat((y_true_AR, labels[0]), 1)
-            y_pred_ECG = torch.cat((y_pred_ECG, outputs[1].permute(0, 2, 1).reshape((batch_size * 2560, 2))), 1)
-            y_true_ECG = torch.cat((y_true_ECG, labels[1].permute(0, 2, 1).reshape((batch_size * 2560, 2))), 1)
+            y_pred_AR = torch.cat((y_pred_AR, outputs[0]), 0)
+            y_true_AR = torch.cat((y_true_AR, labels[0]), 0)
+            y_pred_ECG = torch.cat((y_pred_ECG, outputs[1].permute(0, 2, 1).reshape((batch_size * 2560, 2))), 0)
+            y_true_ECG = torch.cat((y_true_ECG, labels[1].permute(0, 2, 1).reshape((batch_size * 2560, 2))), 0)
             del inputs, labels1, labels2
     return y_pred_AR, y_true_AR, y_pred_ECG, y_true_ECG
 
-def val_log(log_writer, alpha, y_pred_ARs, y_true_ARs, y_pred_ECGs, y_true_ECGs, idx=0):
+def val_log(log_writer, alpha, scale_factor, y_pred_ARs, y_true_ARs, y_pred_ECGs, y_true_ECGs, idx=0):
     losses = []
     mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ARs, y_true_ARs)
     loss = (1-ccc).mean() + alpha * rmse
     losses.append(loss)
     logging('Validation', 'AR', log_writer, loss, mae, mse, rmse, pcc, ccc, idx)
-    mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ECGs, y_true_ECGs)
+    mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ECGs * scale_factor, y_true_ECGs * scale_factor)
     loss = (1-ccc).mean() + alpha * rmse
     losses.append(loss)
     logging('Validation', 'ECG', log_writer, loss, mae, mse, rmse, pcc, ccc, idx)
 
+    y_pred_ARs = y_pred_ARs.permute(1, 0)
+    y_true_ARs = y_true_ARs.permute(1, 0)
+    y_pred_ECGs = y_pred_ECGs.permute(1, 0)
+    y_true_ECGs = y_true_ECGs.permute(1, 0)
     scatter = scatter_fn(y_pred_ARs[0].cpu(), y_true_ARs[0].cpu())
     log_writer.add_figure('Pred vs Actual: {}'.format('Arousal'), scatter, idx) 
     scatter = scatter_fn(y_pred_ARs[1].cpu(), y_true_ARs[1].cpu())
