@@ -27,7 +27,7 @@ class AMIGOS(data.Dataset):
     """
     Class to handle AMIGOS Dataset.
     """
-    def __init__(self, root_path, labels_path, vids_dir, x_transform, y_transform, downsample=5):
+    def __init__(self, root_path, labels_path, vids_dir, x_transform, y_transform, downsample=5, remove_mov=None):
         """
         Dataset constructor
         :param root_path: (str) path to root of face segments
@@ -39,7 +39,7 @@ class AMIGOS(data.Dataset):
         """
         self.x_transform = x_transform
         self.y_transform = y_transform
-        self.data = self.make_dataset(root_path, labels_path, vids_dir)
+        self.data = self.make_dataset(root_path, labels_path, vids_dir, remove_mov)
         self.labels = [[self.data[uid][vid][seg_id]['AR'], self.data[uid][vid][seg_id]['ECG']] for uid in self.data for vid in self.data[uid] for seg_id in self.data[uid][vid]]
         self.idxs = [(i, uid, vid, seg_id) for uid in self.data.keys() for vid in self.data[uid].keys() for i, seg_id in enumerate(self.data[uid][vid].keys())]
         self.indices = list(range(0, len(self.idxs)))
@@ -83,11 +83,19 @@ class AMIGOS(data.Dataset):
         ret = [transform(cv2.cvtColor(cv2.imread(os.path.join(path, f)), cv2.COLOR_BGR2RGB)) for f in frames]
         return ret
     
-    def make_dataset(self, root_path, labels_path, vids_dir):
+    def make_dataset(self, root_path, labels_path, vids_dir, remove_mov):
         # filter out videos that did not meet the requirements
-        to_remove_mov = ignore_mov(vids_dir, root_path)
-        to_remove_mov += ['P11_18_face', 'P13_58_face', 'P39_10_face', 'P8', 'P24', 'P28']
-
+        # when vids_dir is removed to free out disk space
+        if remove_mov is None or not os.path.exists(remove_mov):
+            to_remove_mov = ignore_mov(vids_dir, root_path)
+            to_remove_mov += ['P11_18_face', 'P13_58_face', 'P39_10_face', 'P8', 'P24', 'P28']
+            if remove_mov:
+                dt = {'remove_mov': to_remove_mov}
+                with open(remove_mov, 'w') as f:
+                    json.dump(dt, f)
+        else:
+            with open(remove_mov, 'r') as f:
+                to_remove_mov = json.load(f)['remove_mov']
         segment_paths = []
         for class_name in os.listdir(root_path):
             if '_face' in class_name:
