@@ -56,7 +56,7 @@ def scatter_fn(y, y_pred):
     return fig
 
 def plot_fn(y, y_pred):
-    fig, axs = plt.subplots(1, 1)
+    fig, axs = plt.subplots(1, 1, figsize=(20, 8))
     axs.plot(y, label='Predicted Value')
     axs.plot(y_pred, label='True Value')
     axs.set_xlabel('Overtime Index', fontsize=10)
@@ -64,17 +64,19 @@ def plot_fn(y, y_pred):
     axs.legend(loc='upper right')
     return fig
 
-def eval_dataloader(model_path, val_dataset, batch_size, loader_kwargs):
+def eval_dataloader(model_path, val_dataset, batch_size, loader_kwargs, uid=None):
     fname = os.path.basename(model_path).split('.')[0]
-    uid = int(fname.replace('pid_', ''))
+    uid = uid or int(fname.replace('pid_', ''))
     val_idx = [idx[0] for idx in val_dataset.idxs if idx[1] == uid]
     val_set = data.Subset(val_dataset, val_idx)
-    return torch.utils.data.DataLoader(
+    test_loader = torch.utils.data.DataLoader(
         val_set,
         batch_size=batch_size,
         collate_fn=series_collate,
         **loader_kwargs
     )
+    print('AMIGO {}: Test samples: {}'.format(uid, len(test_loader)))
+    return test_loader
 
 @torch.no_grad()
 def run_val(model, test_loader, batch_size):
@@ -95,27 +97,27 @@ def run_val(model, test_loader, batch_size):
             del inputs, labels1, labels2
     return y_pred_AR, y_true_AR, y_pred_ECG, y_true_ECG
 
-def val_log(log_writer, alpha, scale_factor, y_pred_ARs, y_true_ARs, y_pred_ECGs, y_true_ECGs, idx=0):
+def val_log(log_writer, alpha, scale_factor, y_pred_ARs, y_true_ARs, y_pred_ECGs, y_true_ECGs, idx=0, uid=''):
     losses = []
     mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ARs, y_true_ARs)
     loss = (1-ccc).mean() + alpha * rmse
     losses.append(loss)
-    logging('Validation', 'AR', log_writer, loss, mae, mse, rmse, pcc, ccc, idx)
-    mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ECGs * scale_factor, y_true_ECGs * scale_factor)
+    logging('Validation-{}'.format(uid), 'AR', log_writer, loss, mae, mse, rmse, pcc, ccc, idx)
+    mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ECGs, y_true_ECGs)
     loss = (1-ccc).mean() + alpha * rmse
     losses.append(loss)
-    logging('Validation', 'ECG', log_writer, loss, mae, mse, rmse, pcc, ccc, idx)
+    logging('Validation-{}'.format(uid), 'ECG', log_writer, loss, mae, mse, rmse, pcc, ccc, idx)
 
     y_pred_ARs = y_pred_ARs.permute(1, 0)
     y_true_ARs = y_true_ARs.permute(1, 0)
     y_pred_ECGs = y_pred_ECGs.permute(1, 0)
     y_true_ECGs = y_true_ECGs.permute(1, 0)
     scatter = scatter_fn(y_pred_ARs[0].cpu(), y_true_ARs[0].cpu())
-    log_writer.add_figure('Pred vs Actual: {}'.format('Arousal'), scatter, idx) 
+    log_writer.add_figure('Pred vs Actual: {}/{}'.format('Arousal', uid), scatter, idx) 
     scatter = scatter_fn(y_pred_ARs[1].cpu(), y_true_ARs[1].cpu())
-    log_writer.add_figure('Pred vs Actual: {}'.format('Valence'), scatter, idx)
+    log_writer.add_figure('Pred vs Actual: {}/{}'.format('Valence', uid), scatter, idx)
     scatter = plot_fn(y_pred_ECGs[0].cpu(), y_true_ECGs[0].cpu())
-    log_writer.add_figure('Pred vs Actual: {}'.format('ECG_L'), scatter, idx)
+    log_writer.add_figure('Pred vs Actual: {}/{}'.format('ECG_L', uid), scatter, idx)
     scatter = plot_fn(y_pred_ECGs[1].cpu(), y_true_ECGs[1].cpu())
-    log_writer.add_figure('Pred vs Actual: {}'.format('ECG_R'), scatter, idx)
+    log_writer.add_figure('Pred vs Actual: {}/{}'.format('ECG_R', uid), scatter, idx)
     return losses

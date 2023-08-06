@@ -27,7 +27,7 @@ class AMIGOS(data.Dataset):
     """
     Class to handle AMIGOS Dataset.
     """
-    def __init__(self, root_path, labels_path, vids_dir, x_transform, y_transform, downsample=5, remove_mov=None):
+    def __init__(self, root_path, labels_path, vids_dir, x_transform, y_transform, normalize_val, downsample=5, remove_mov=None):
         """
         Dataset constructor
         :param root_path: (str) path to root of face segments
@@ -37,6 +37,7 @@ class AMIGOS(data.Dataset):
         :param y_transform: (callable) transformation to apply to labels
         :returns AMIGOS Dataset object
         """
+        self.normalize_val=normalize_val
         self.x_transform = x_transform
         self.y_transform = y_transform
         self.data = self.make_dataset(root_path, labels_path, vids_dir, remove_mov)
@@ -118,8 +119,8 @@ class AMIGOS(data.Dataset):
             vid = vid_name[1]
             dt[uid][vid] = {segment: {
                 'frames_path': os.path.join(segment_path, str(segment)),
-                'AR': np.asarray([data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['AR'][segment]['arousal'], data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['AR'][segment]['valence']]),
-                'ECG': np.asarray([np.asarray(data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['ECG_L'][segment]), np.asarray(data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['ECG_R'][segment])])
+                'AR': (np.asarray([data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['AR'][segment]['arousal'], data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['AR'][segment]['valence']]) - self.normalize_val['AR']['min']) / self.normalize_val['AR']['range'],
+                'ECG': (np.asarray([np.asarray(data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['ECG_L'][segment]), np.asarray(data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['ECG_R'][segment])]) - self.normalize_val['ECG']['min']) / self.normalize_val['ECG']['range']
             } for segment in data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['AR'].keys()}
             # exclude video if there is nan value in ECG
             ECGs = [dt[uid][vid][seg]['ECG'] for seg in dt[uid][vid].keys()]
