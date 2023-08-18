@@ -27,7 +27,7 @@ class AMIGOS(data.Dataset):
     """
     Class to handle AMIGOS Dataset.
     """
-    def __init__(self, root_path, labels_path, vids_dir, x_transform, y_transform, normalize_val, downsample=5, remove_mov=None):
+    def __init__(self, root_path, labels_path, vids_dir, x_transform, y_transform, normalize_val, downsample=5, remove_mov=None, normalize=True):
         """
         Dataset constructor
         :param root_path: (str) path to root of face segments
@@ -40,21 +40,31 @@ class AMIGOS(data.Dataset):
         self.normalize_val=normalize_val
         self.x_transform = x_transform
         self.y_transform = y_transform
-        self.data = self.make_dataset(root_path, labels_path, vids_dir, remove_mov)
+        self.data = self.make_dataset(root_path, labels_path, vids_dir, remove_mov, normalize)
         self.labels = [[self.data[uid][vid][seg_id]['AR'], self.data[uid][vid][seg_id]['ECG']] for uid in self.data for vid in self.data[uid] for seg_id in self.data[uid][vid]]
-        self.idxs = [(i, uid, vid, seg_id) for uid in self.data.keys() for vid in self.data[uid].keys() for i, seg_id in enumerate(self.data[uid][vid].keys())]
+        self.idxs = self.get_idxs()
         self.indices = list(range(0, len(self.idxs)))
         self.downsample = downsample
 
     @property
     def data(self):
         return self._data
-
+    
+    def get_idxs(self):
+        ret = []
+        c = 0
+        for uid in self.data.keys():
+            for vid in self.data[uid].keys():
+                for seg_id in self.data[uid][vid].keys():
+                    ret.append((c, uid, vid, seg_id))
+                    c += 1
+        return ret
+                    
     @data.setter
     def data(self, data):
         self._data = data
         self.labels = [[self.data[uid][vid][seg_id]['AR'], self.data[uid][vid][seg_id]['ECG']] for uid in self.data for vid in self.data[uid] for seg_id in self.data[uid][vid]]
-        self.idxs = [(i, uid, vid, seg_id) for uid in self.data.keys() for vid in self.data[uid].keys() for i, seg_id in enumerate(self.data[uid][vid].keys())]
+        self.idxs = self.get_idxs()
         self.indices = list(range(0, len(self.idxs)))
 
     def __getitem__(self, index):
@@ -84,7 +94,7 @@ class AMIGOS(data.Dataset):
         ret = [transform(cv2.cvtColor(cv2.imread(os.path.join(path, f)), cv2.COLOR_BGR2RGB)) for f in frames]
         return ret
     
-    def make_dataset(self, root_path, labels_path, vids_dir, remove_mov):
+    def make_dataset(self, root_path, labels_path, vids_dir, remove_mov, normalize=True):
         # filter out videos that did not meet the requirements
         # when vids_dir is removed to free out disk space
         if remove_mov is None or not os.path.exists(remove_mov):
@@ -117,11 +127,18 @@ class AMIGOS(data.Dataset):
             if uid not in dt.keys():
                 dt[uid] = {}
             vid = vid_name[1]
-            dt[uid][vid] = {segment: {
-                'frames_path': os.path.join(segment_path, str(segment)),
-                'AR': (np.asarray([data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['AR'][segment]['arousal'], data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['AR'][segment]['valence']]) - self.normalize_val['AR']['min']) / self.normalize_val['AR']['range'],
-                'ECG': (np.asarray([np.asarray(data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['ECG_L'][segment]), np.asarray(data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['ECG_R'][segment])]) - self.normalize_val['ECG']['min']) / self.normalize_val['ECG']['range']
-            } for segment in data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['AR'].keys()}
+            if normalize:
+                dt[uid][vid] = {segment: {
+                    'frames_path': os.path.join(segment_path, str(segment)),
+                    'AR': (np.asarray([data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['AR'][segment]['arousal'], data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['AR'][segment]['valence']]) - self.normalize_val['AR']['min']) / self.normalize_val['AR']['range'],
+                    'ECG': (np.asarray([np.asarray(data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['ECG_L'][segment]), np.asarray(data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['ECG_R'][segment])]) - self.normalize_val['ECG']['min']) / self.normalize_val['ECG']['range']
+                } for segment in data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['AR'].keys()}
+            else:
+                dt[uid][vid] = {segment: {
+                    'frames_path': os.path.join(segment_path, str(segment)),
+                    'AR': np.asarray([data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['AR'][segment]['arousal'], data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['AR'][segment]['valence']]),
+                    'ECG': np.asarray([np.asarray(data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['ECG_L'][segment]), np.asarray(data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['ECG_R'][segment])])
+                } for segment in data_preprocessed['Data_Preprocessed_P{:02d}'.format(uid)][vid]['AR'].keys()}
             # exclude video if there is nan value in ECG
             ECGs = [dt[uid][vid][seg]['ECG'] for seg in dt[uid][vid].keys()]
             ECGs = np.array(ECGs).ravel()

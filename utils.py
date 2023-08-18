@@ -23,23 +23,41 @@ def CCC(a: torch.tensor, b: torch.tensor):
     rho /= (a.var(dim=0, unbiased=False) + b.var(dim=0, unbiased=False) + torch.pow(a.mean(dim=0) - b.mean(dim=0), 2) + 1e-5)
     return rho
 
-def eval_metrics(y_pred, y_true):
-    mae = F.l1_loss(y_pred, y_true, reduction='mean')
-    mse = F.mse_loss(y_pred, y_true, reduction='mean')
-    rmse = torch.sqrt(mse)
+def eval_metrics(y_pred, y_true, val=False):
     pcc = PCC(y_pred, y_true)
     ccc = CCC(y_pred, y_true)
+    if val:
+        y_pred = y_pred.permute(1, 0)
+        y_true = y_true.permute(1, 0)
+        mae = []
+        mse = []
+        rmse = []
+        for i in range(len(y_pred)):
+            mae.append(F.l1_loss(y_pred[i], y_true[i], reduction='mean'))
+            mse.append(F.mse_loss(y_pred[i], y_true[i], reduction='mean'))
+            rmse.append(torch.sqrt(mse[-1]))
+
+    else:
+        mae = F.l1_loss(y_pred, y_true, reduction='mean')
+        mse = F.mse_loss(y_pred, y_true, reduction='mean')
+        rmse = torch.sqrt(mse)
     return mae, mse, rmse, pcc, ccc
 
-def logging(mode, output_name, log_writer, loss, mae, mse, rmse, pcc, ccc, idx):
+def logging(mode, output_name, log_writer, loss, mae, mse, rmse, pcc, ccc, idx, val=False):
     attrs = {
         'AR': ['Arousal', 'Valence'],
         'ECG': ['ECG_L', 'ECG_R']
     }
     log_writer.add_scalar('{}-Loss/{}'.format(output_name, mode), loss, idx)
-    log_writer.add_scalar('{}-MAE/{}'.format(output_name, mode), mae, idx)
-    log_writer.add_scalar('{}-MSE/{}'.format(output_name, mode), mse, idx)
-    log_writer.add_scalar('{}-RMSE/{}'.format(output_name, mode), rmse, idx)
+    if val:
+        for i in range(len(attrs[output_name])):
+            log_writer.add_scalar('{}-MAE/{}'.format(attrs[output_name][i], mode), mae[i], idx)
+            log_writer.add_scalar('{}-MSE/{}'.format(attrs[output_name][i], mode), mse[i], idx)
+            log_writer.add_scalar('{}-RMSE/{}'.format(attrs[output_name][i], mode), rmse[i], idx)
+    else:
+        log_writer.add_scalar('{}-MAE/{}'.format(output_name, mode), mae, idx)
+        log_writer.add_scalar('{}-MSE/{}'.format(output_name, mode), mse, idx)
+        log_writer.add_scalar('{}-RMSE/{}'.format(output_name, mode), rmse, idx)
     if len(ccc) > 1:
         for i in range(len(attrs[output_name])):
             log_writer.add_scalar('{}-PCC/{}'.format(attrs[output_name][i], mode), pcc[i], idx)
@@ -97,16 +115,22 @@ def run_val(model, test_loader, batch_size):
             del inputs, labels1, labels2
     return y_pred_AR, y_true_AR, y_pred_ECG, y_true_ECG
 
-def val_log(log_writer, alpha, scale_factor, y_pred_ARs, y_true_ARs, y_pred_ECGs, y_true_ECGs, idx=0, uid=''):
+def val_log(log_writer, alpha, scale_factor, y_pred_ARs, y_true_ARs, y_pred_ECGs, y_true_ECGs, idx=0, uid='', val=False):
     losses = []
-    mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ARs, y_true_ARs)
+    mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ARs, y_true_ARs, val=val)
+    # calculating loss
     loss = (1-ccc).mean() + alpha * rmse
+    # loss = rmse
+    # loss = (1-ccc).mean()
     losses.append(loss)
-    logging('Validation-{}'.format(uid), 'AR', log_writer, loss, mae, mse, rmse, pcc, ccc, idx)
-    mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ECGs, y_true_ECGs)
+    logging('Validation-{}'.format(uid), 'AR', log_writer, loss, mae, mse, rmse, pcc, ccc, idx, val=val)
+    mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ECGs, y_true_ECGs, val=val)
+    # calculating loss
     loss = (1-ccc).mean() + alpha * rmse
+    # loss = rmse
+    # loss = (1-ccc).mean()
     losses.append(loss)
-    logging('Validation-{}'.format(uid), 'ECG', log_writer, loss, mae, mse, rmse, pcc, ccc, idx)
+    logging('Validation-{}'.format(uid), 'ECG', log_writer, loss, mae, mse, rmse, pcc, ccc, idx, val=val)
 
     y_pred_ARs = y_pred_ARs.permute(1, 0)
     y_true_ARs = y_true_ARs.permute(1, 0)
