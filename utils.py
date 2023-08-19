@@ -10,6 +10,23 @@ from torch.nn import functional as F
 import matplotlib.pyplot as plt
 
 
+def relational_loss(features, labels):
+    # print(features.shape, features.T.shape)
+    # print(labels.shape, labels.T.shape)
+    labels = F.normalize(labels)
+    labels = torch.matmul(labels, labels.T)
+
+    features = F.normalize(features, dim=1)
+    similarity_matrix = torch.matmul(features, features.T)
+
+    # discard the main diagonal from both: labels and similarities matrix
+    mask = torch.eye(labels.shape[0], dtype=torch.bool).cuda()
+    labels = labels[~mask].view(labels.shape[0], -1)
+    similarity_matrix = similarity_matrix[~mask].view(similarity_matrix.shape[0], -1)
+    cnt_mse = F.mse_loss(similarity_matrix, labels, reduction='mean')
+    cnt_rmse = torch.sqrt(cnt_mse)
+    return cnt_rmse
+    
 def PCC(a: torch.tensor, b: torch.tensor):
     am = torch.mean(a, dim=0)
     bm = torch.mean(b, dim=0)
@@ -115,20 +132,25 @@ def run_val(model, test_loader, batch_size):
             del inputs, labels1, labels2
     return y_pred_AR, y_true_AR, y_pred_ECG, y_true_ECG
 
-def val_log(log_writer, alpha, scale_factor, y_pred_ARs, y_true_ARs, y_pred_ECGs, y_true_ECGs, idx=0, uid='', val=False):
+def val_log(log_writer, alpha, scale_factor, y_pred_ARs, y_true_ARs, y_pred_ECGs, y_true_ECGs, idx=0, uid='', val=False, batch_size=6):
     losses = []
+    # AR
     mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ARs, y_true_ARs, val=val)
     # calculating loss
     # loss = (1-ccc).mean() + alpha * (sum(rmse) / len(rmse))
     # loss = rmse
-    loss = (1-ccc).mean()
+    # loss = (1-ccc).mean()
+    loss = (1-ccc).mean() + 2 * relational_loss(y_pred_ARs, y_true_ARs)
     losses.append(loss)
     logging('Validation-{}'.format(uid), 'AR', log_writer, loss, mae, mse, rmse, pcc, ccc, idx, val=val)
+
+    # ECG
     mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ECGs, y_true_ECGs, val=val)
     # calculating loss
     # loss = (1-ccc).mean() + alpha * (sum(rmse) / len(rmse))
     # loss = rmse
-    loss = (1-ccc).mean()
+    # loss = (1-ccc).mean()
+    loss = (1-ccc).mean() + 2 * relational_loss(y_pred_ECGs.permute(0, 2, 1).reshape((batch_size * 2560, 2)), y_true_ECGs.permute(0, 2, 1).reshape((batch_size * 2560, 2)))
     losses.append(loss)
     logging('Validation-{}'.format(uid), 'ECG', log_writer, loss, mae, mse, rmse, pcc, ccc, idx, val=val)
 

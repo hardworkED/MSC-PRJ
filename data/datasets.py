@@ -27,7 +27,7 @@ class AMIGOS(data.Dataset):
     """
     Class to handle AMIGOS Dataset.
     """
-    def __init__(self, root_path, labels_path, vids_dir, x_transform, y_transform, normalize_val, downsample=5, remove_mov=None, normalize=True):
+    def __init__(self, root_path, labels_path, vids_dir, x_transform, y_transform, normalize_val, downsample=5, remove_mov=None, normalize=True, bool_json=False):
         """
         Dataset constructor
         :param root_path: (str) path to root of face segments
@@ -45,6 +45,7 @@ class AMIGOS(data.Dataset):
         self.idxs = self.get_idxs()
         self.indices = list(range(0, len(self.idxs)))
         self.downsample = downsample
+        self.bool_json = bool_json
 
     @property
     def data(self):
@@ -83,11 +84,11 @@ class AMIGOS(data.Dataset):
     def __len__(self):
         return len(self.data)
     
-    def loader(self, path, json=False):
+    def loader(self, path):
         transform = transforms.Compose([
             transforms.ToTensor()
         ])
-        if json:
+        if self.bool_json:
             frames = [f for f in os.listdir(path) if '.json' in f][0]
             with open(frames, 'r') as f:
                 frames = json.load(f)['segmented_frames']
