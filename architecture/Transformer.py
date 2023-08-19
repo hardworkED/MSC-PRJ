@@ -54,7 +54,7 @@ class PositionalEncoding(nn.Module):
         return x + self.encode[:, :x.size(1)]
 
 class Encoder(nn.Module):
-    def __init__(self, dim=512, n_heads=16, dropout=0.1):
+    def __init__(self, dim=512, n_heads=8, dropout=0.1):
         super(Encoder, self).__init__()
         self.MultiHeadAttention = MultiHeadAttention(dim, n_heads)
         self.PositionWiseFeedForward = nn.Sequential(
@@ -75,7 +75,7 @@ class Encoder(nn.Module):
         return x
 
 class TransformerEncoderOnly(nn.Module):
-    def __init__(self, dim, n_heads=16, dropout=0.1, n_encoders=6):
+    def __init__(self, dim, n_heads=8, dropout=0.1, n_encoders=6):
         super(TransformerEncoderOnly, self).__init__()
         self.emb = nn.Embedding(1000, dim)
         self.dropout = nn.Dropout(dropout)

@@ -119,15 +119,16 @@ def val_log(log_writer, alpha, scale_factor, y_pred_ARs, y_true_ARs, y_pred_ECGs
     losses = []
     mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ARs, y_true_ARs, val=val)
     # calculating loss
-    loss = (1-ccc).mean() + alpha * (sum(rmse) / len(rmse))
-    # loss = (1-ccc).mean()
+    # loss = (1-ccc).mean() + alpha * (sum(rmse) / len(rmse))
+    # loss = rmse
+    loss = (1-ccc).mean()
     losses.append(loss)
     logging('Validation-{}'.format(uid), 'AR', log_writer, loss, mae, mse, rmse, pcc, ccc, idx, val=val)
     mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ECGs, y_true_ECGs, val=val)
     # calculating loss
-    loss = (1-ccc).mean() + alpha * (sum(rmse) / len(rmse))
+    # loss = (1-ccc).mean() + alpha * (sum(rmse) / len(rmse))
     # loss = rmse
-    # loss = (1-ccc).mean()
+    loss = (1-ccc).mean()
     losses.append(loss)
     logging('Validation-{}'.format(uid), 'ECG', log_writer, loss, mae, mse, rmse, pcc, ccc, idx, val=val)
 

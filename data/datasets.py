@@ -83,15 +83,22 @@ class AMIGOS(data.Dataset):
     def __len__(self):
         return len(self.data)
     
-    def loader(self, path):
-        frames = [f for f in os.listdir(path) if '.jpg' in f]
-        frames.sort()
-        # downsampling
-        frames = [frames[idi] for idi in range(len(frames)) if (idi % self.downsample) == 0]
+    def loader(self, path, json=False):
         transform = transforms.Compose([
             transforms.ToTensor()
         ])
-        ret = [transform(cv2.cvtColor(cv2.imread(os.path.join(path, f)), cv2.COLOR_BGR2RGB)) for f in frames]
+        if json:
+            frames = [f for f in os.listdir(path) if '.json' in f][0]
+            with open(frames, 'r') as f:
+                frames = json.load(f)['segmented_frames']
+            ret = [transform(np.asarray(f)) for f in frames]
+            pass
+        else:
+            frames = [f for f in os.listdir(path) if '.jpg' in f]
+            frames.sort()
+            # downsampling
+            frames = [frames[idi] for idi in range(len(frames)) if (idi % self.downsample) == 0]
+            ret = [transform(cv2.cvtColor(cv2.imread(os.path.join(path, f)), cv2.COLOR_BGR2RGB)) for f in frames]
         return ret
     
     def make_dataset(self, root_path, labels_path, vids_dir, remove_mov, normalize=True):

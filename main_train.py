@@ -18,10 +18,10 @@ root_path = 'data/face_segments'
 labels_path = 'data/Data_Preprocessed_segmented.json'
 vids_dir = 'data/vids_segments'
 remove_mov = 'data/ignore_mov.json'
-num_class = 4096
-batch_size = 4
+num_class = 2048
+batch_size = 6
 learning_rate = 1e-05
-epochs = 12
+epochs = 30
 alpha = 2
 beta = 1
 scale_factor = 1
@@ -78,8 +78,8 @@ val_dataset = AMIGOS(
 
 output_names = ['AR', 'ECG']
 for uid in train_dataset.data.keys():
-    if uid in [20, 34, 5, 31, 27, 23, 19, 6, 37, 2, 3, 11, 17, 30, 33, 25, 10, 18, 22, 7, 39, 26, 13, 12, 1, 29, 36, 15, 9, 4, 21, 14]:
-        continue
+    # if uid in [20, 34, 5, 31, 27, 23, 19, 6, 37, 2, 3, 11, 17, 30, 33, 25, 10, 18, 22, 7, 39, 26, 13, 12, 1, 29, 36, 15, 9, 4, 21, 14]:
+    #     continue
     train_idx = [idx[0] for idx in train_dataset.idxs if idx[1] != uid]
     val_idx = [idx[0] for idx in train_dataset.idxs if idx[1] == uid]
 
@@ -130,9 +130,9 @@ for uid in train_dataset.data.keys():
                     else:
                         mae, mse, rmse, pcc, ccc = eval_metrics(outputs[i], labels[i])
                     # calculating loss
-                    loss = (1-ccc).mean() + alpha * rmse
+                    # loss = (1-ccc).mean() + alpha * rmse
                     # loss = rmse
-                    # loss = (1-ccc).mean()
+                    loss = (1-ccc).mean()
                     losses.append(loss)
 
                     logging('Train-{}'.format(uid), output_names[i], log_writer, loss, mae, mse, rmse, pcc, ccc, iter_idx)
