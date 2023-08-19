@@ -187,8 +187,8 @@ def run_val2(model, test_loader, batch_size, epoch, log_writer, alpha=1, val=Fal
                     mae, mse, rmse, pcc, ccc = eval_metrics(outputs[i], labels[i], val=val)
                     # loss = (1-ccc).mean() + 2 * relational_loss(outputs[i], labels[i])
                 # loss = (1-ccc).mean() + alpha * (sum(rmse) / len(rmse))
-                # loss = (sum(rmse) / len(rmse))
-                loss = (1-ccc).mean()
+                loss = (sum(rmse) / len(rmse))
+                # loss = (1-ccc).mean()
                 hist[i].append([mae, mse, rmse, pcc, ccc, loss])
         # logging
         losses = []

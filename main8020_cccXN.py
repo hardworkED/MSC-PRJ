@@ -50,7 +50,7 @@ train_dataset = AMIGOS(
     y_transform=y_transform,
     downsample=downsample,
     normalize_val=normalize_val,
-    # normalize=False
+    normalize=False
 )
 
 x_transform = transforms.Compose([
@@ -66,10 +66,10 @@ val_dataset = AMIGOS(
     y_transform=y_transform,
     downsample=downsample,
     normalize_val=normalize_val,
-    # normalize=False
+    normalize=False
 )
 
-mode = 'ccc'
+mode = 'cccXN'
 savemodel = 'models/' + mode
 if not os.path.exists(savemodel):
     os.makedirs(savemodel)

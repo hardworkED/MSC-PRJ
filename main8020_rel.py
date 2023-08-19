@@ -69,7 +69,7 @@ val_dataset = AMIGOS(
     # normalize=False
 )
 
-mode = 'ccc'
+mode = 'rel'
 savemodel = 'models/' + mode
 if not os.path.exists(savemodel):
     os.makedirs(savemodel)

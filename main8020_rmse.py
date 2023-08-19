@@ -69,7 +69,7 @@ val_dataset = AMIGOS(
     # normalize=False
 )
 
-mode = 'ccc'
+mode = 'rmse'
 savemodel = 'models/' + mode
 if not os.path.exists(savemodel):
     os.makedirs(savemodel)
@@ -136,9 +136,8 @@ for epoch in range(epochs):
                     # loss = (1-ccc).mean() + 2 * relational_loss(outputs[i], labels[i])
                 # calculating loss
                 # loss = (1-ccc).mean() + alpha * rmse
-                # loss = rmse
+                loss = rmse
                 # loss = (1-ccc).mean()
-                loss = (1-ccc).mean()
                 losses.append(loss)
 
                 logging('Train', output_names[i], log_writer, loss, mae, mse, rmse, pcc, ccc, iter_idx)

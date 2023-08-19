@@ -50,7 +50,7 @@ train_dataset = AMIGOS(
     y_transform=y_transform,
     downsample=downsample,
     normalize_val=normalize_val,
-    # normalize=False
+    normalize=False
 )
 
 x_transform = transforms.Compose([
@@ -66,10 +66,10 @@ val_dataset = AMIGOS(
     y_transform=y_transform,
     downsample=downsample,
     normalize_val=normalize_val,
-    # normalize=False
+    normalize=False
 )
 
-mode = 'ccc'
+mode = 'rmseXN'
 savemodel = 'models/' + mode
 if not os.path.exists(savemodel):
     os.makedirs(savemodel)
@@ -136,9 +136,8 @@ for epoch in range(epochs):
                     # loss = (1-ccc).mean() + 2 * relational_loss(outputs[i], labels[i])
                 # calculating loss
                 # loss = (1-ccc).mean() + alpha * rmse
-                # loss = rmse
+                loss = rmse
                 # loss = (1-ccc).mean()
-                loss = (1-ccc).mean()
                 losses.append(loss)
 
                 logging('Train', output_names[i], log_writer, loss, mae, mse, rmse, pcc, ccc, iter_idx)
