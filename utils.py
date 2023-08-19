@@ -172,8 +172,7 @@ def val_log(log_writer, alpha, scale_factor, y_pred_ARs, y_true_ARs, y_pred_ECGs
 def run_val2(model, test_loader, batch_size, epoch, log_writer, alpha=1, val=False):
     output_names = ['AR', 'ECG']
     # mae, mse, rmse, pcc, ccc, loss
-    hist = []
-    losses = []
+    hist = [[], []]
     with torch.no_grad():
         for batch_idx, (inputs, labels1, labels2, _) in enumerate(test_loader):
             inputs, labels1, labels2 = inputs.cuda(), labels1.cuda(), labels2.cuda()
@@ -187,15 +186,31 @@ def run_val2(model, test_loader, batch_size, epoch, log_writer, alpha=1, val=Fal
                 else:
                     mae, mse, rmse, pcc, ccc = eval_metrics(outputs[i], labels[i], val=val)
                     # loss = (1-ccc).mean() + 2 * relational_loss(outputs[i], labels[i])
-                rmse = (sum(rmse) / len(rmse))
-                # loss = (1-ccc).mean() + alpha * rmse
-                # loss = rmse
-                # loss = (1-ccc).mean()
-                hist.append([mae, mse, rmse, pcc, ccc, loss])
-                losses.append(loss)
-                logging('Validation', output_names[i], log_writer, loss, mae, mse, rmse, pcc, ccc, epoch, val=val)
-            # loss = beta * losses[0] + gamma * losses[1]
-            loss = sum(losses)
-            log_writer.add_scalar('TotalLoss/{}'.format('Validation'), loss, epoch)
-            del inputs, labels1, labels2
+                # loss = (1-ccc).mean() + alpha * (sum(rmse) / len(rmse))
+                # loss = (sum(rmse) / len(rmse))
+                loss = (1-ccc).mean()
+                hist[i].append([mae, mse, rmse, pcc, ccc, loss])
+        # logging
+        losses = []
+        for i in range(len(labels)):
+            count = len(hist[i])
+            tmp = list((zip(*hist[i])))
+            loss = sum(tmp[5]) / count
+            losses.append(loss)
+            logging('Validation',
+                output_names[i],
+                log_writer,
+                loss,
+                [sum(i) / count for i in list(zip(*tmp[0]))],
+                [sum(i) / count for i in list(zip(*tmp[1]))],
+                [sum(i) / count for i in list(zip(*tmp[2]))],
+                [sum(i) / count for i in list(zip(*tmp[3]))],
+                [sum(i) / count for i in list(zip(*tmp[4]))],
+                epoch,
+                val=val
+            )
+        # loss = beta * losses[0] + gamma * losses[1]
+        loss = sum(losses)
+        log_writer.add_scalar('TotalLoss/{}'.format('Validation'), loss, epoch)
+        del inputs, labels1, labels2
     return loss

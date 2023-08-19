@@ -77,17 +77,17 @@ log_dir = 'log/' + mode
 log_writer = SummaryWriter(os.path.join(*[log_dir, 'AMIGOS', 'Train', datetime.now().strftime('%b%d_%H-%M-%S')]))
 
 output_names = ['AR', 'ECG']
-# randomly select 80% of uid as training sample
 idxs = [uid for uid in train_dataset.data.keys()]
-train_uids = random.sample(idxs, (len(idxs) // 5) * 4)
+idxs.sort()
+train_uids = idxs[:(len(idxs) // 5) * 4]
+# train_uids = random.sample(idxs, (len(idxs) // 5) * 4)
 # select 20% samples from each training uid
 actual_train = []
 for tidx in train_uids:
     samples = [idx[0] for idx in train_dataset.idxs if idx[1] == tidx]
-    print(samples)
-    actual_train.extend(random.sample(samples, len(samples) // 5))
+    actual_train.extend(random.sample(samples, len(samples) // 50))
 random.shuffle(actual_train)
-val_idx = [idx[0] for idx in train_dataset.idxs if idx[1] not in train_uids]
+val_idx = [idx[0] for idx in train_dataset.idxs if idx[1] not in train_uids][:10]
 print('Training UIDs {} with {} samples'.format(train_uids, len(actual_train)))
 
 train_set = data.Subset(train_dataset, actual_train)
