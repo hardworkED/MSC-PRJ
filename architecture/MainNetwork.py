@@ -7,8 +7,8 @@ from .Transformer import TransformerEncoderOnly
 class MainNetwork(nn.Module):
     def __init__(self, num_class):
         super(MainNetwork, self).__init__()
-        self.extract_features = ResNet50(num_class) # (B, T, num_class))
-        self.transformer = TransformerEncoderOnly(num_class, n_encoders=2) # (B, num_class)
+        self.extract_features = ResNet50(num_class) # (B, T, num_class)
+        self.transformer = TransformerEncoderOnly(num_class, n_heads=16, n_encoders=2) # (B, num_class)
         self.fc1 = nn.Linear(num_class, 1) # (B, 1)
         self.fc2 = nn.Linear(num_class, 1) # (B, 1)
         self.fc3 = nn.Linear(num_class, 2560) # (B, 2560)

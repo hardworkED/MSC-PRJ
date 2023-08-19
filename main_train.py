@@ -127,8 +127,10 @@ for uid in train_dataset.data.keys():
                 for i in range(len(labels)):
                     if output_names[i] == 'ECG':
                         mae, mse, rmse, pcc, ccc = eval_metrics(outputs[i].permute(0, 2, 1).reshape((batch_size * 2560, 2)), labels[i].permute(0, 2, 1).reshape((batch_size * 2560, 2)))
+                        # loss = (1-ccc).mean() + 2 * relational_loss(outputs[i].permute(0, 2, 1).reshape((batch_size * 2560, 2)), labels[i].permute(0, 2, 1).reshape((batch_size * 2560, 2)))
                     else:
                         mae, mse, rmse, pcc, ccc = eval_metrics(outputs[i], labels[i])
+                        # loss = (1-ccc).mean() + 2 * relational_loss(outputs[i], labels[i])
                     # calculating loss
                     # loss = (1-ccc).mean() + alpha * rmse
                     # loss = rmse

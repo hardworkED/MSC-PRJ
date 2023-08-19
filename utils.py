@@ -35,14 +35,14 @@ def PCC(a: torch.tensor, b: torch.tensor):
     return num/den
 
 
-def CCC(a: torch.tensor, b: torch.tensor):
-    rho = 2 * PCC(a,b) * a.std(dim=0, unbiased=False) * b.std(dim=0, unbiased=False)
+def CCC(a: torch.tensor, b: torch.tensor, pcc):
+    rho = 2 * pcc * a.std(dim=0, unbiased=False) * b.std(dim=0, unbiased=False)
     rho /= (a.var(dim=0, unbiased=False) + b.var(dim=0, unbiased=False) + torch.pow(a.mean(dim=0) - b.mean(dim=0), 2) + 1e-5)
     return rho
 
 def eval_metrics(y_pred, y_true, val=False):
     pcc = PCC(y_pred, y_true)
-    ccc = CCC(y_pred, y_true)
+    ccc = CCC(y_pred, y_true, pcc)
     if val:
         y_pred = y_pred.permute(1, 0)
         y_true = y_true.permute(1, 0)
@@ -132,15 +132,15 @@ def run_val(model, test_loader, batch_size):
             del inputs, labels1, labels2
     return y_pred_AR, y_true_AR, y_pred_ECG, y_true_ECG
 
-def val_log(log_writer, alpha, scale_factor, y_pred_ARs, y_true_ARs, y_pred_ECGs, y_true_ECGs, idx=0, uid='', val=False, batch_size=6):
+def val_log(log_writer, alpha, scale_factor, y_pred_ARs, y_true_ARs, y_pred_ECGs, y_true_ECGs, idx=0, uid='', val=False):
     losses = []
     # AR
     mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ARs, y_true_ARs, val=val)
     # calculating loss
     # loss = (1-ccc).mean() + alpha * (sum(rmse) / len(rmse))
-    # loss = rmse
+    loss = (sum(rmse) / len(rmse))
     # loss = (1-ccc).mean()
-    loss = (1-ccc).mean() + 2 * relational_loss(y_pred_ARs, y_true_ARs)
+    # loss = (1-ccc).mean() + 2 * relational_loss(y_pred_ARs, y_true_ARs)
     losses.append(loss)
     logging('Validation-{}'.format(uid), 'AR', log_writer, loss, mae, mse, rmse, pcc, ccc, idx, val=val)
 
@@ -148,9 +148,9 @@ def val_log(log_writer, alpha, scale_factor, y_pred_ARs, y_true_ARs, y_pred_ECGs
     mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ECGs, y_true_ECGs, val=val)
     # calculating loss
     # loss = (1-ccc).mean() + alpha * (sum(rmse) / len(rmse))
-    # loss = rmse
+    loss = (sum(rmse) / len(rmse))
     # loss = (1-ccc).mean()
-    loss = (1-ccc).mean() + 2 * relational_loss(y_pred_ECGs.permute(0, 2, 1).reshape((batch_size * 2560, 2)), y_true_ECGs.permute(0, 2, 1).reshape((batch_size * 2560, 2)))
+    # loss = (1-ccc).mean() + 2 * relational_loss(y_pred_ECGs, y_true_ECGs)
     losses.append(loss)
     logging('Validation-{}'.format(uid), 'ECG', log_writer, loss, mae, mse, rmse, pcc, ccc, idx, val=val)
 
@@ -167,3 +167,35 @@ def val_log(log_writer, alpha, scale_factor, y_pred_ARs, y_true_ARs, y_pred_ECGs
     scatter = plot_fn(y_pred_ECGs[1].cpu(), y_true_ECGs[1].cpu())
     log_writer.add_figure('Pred vs Actual: {}/{}'.format('ECG_R', uid), scatter, idx)
     return losses
+
+@torch.no_grad()
+def run_val2(model, test_loader, batch_size, epoch, log_writer, alpha=1, val=False):
+    output_names = ['AR', 'ECG']
+    # mae, mse, rmse, pcc, ccc, loss
+    hist = []
+    losses = []
+    with torch.no_grad():
+        for batch_idx, (inputs, labels1, labels2, _) in enumerate(test_loader):
+            inputs, labels1, labels2 = inputs.cuda(), labels1.cuda(), labels2.cuda()
+            outputs = model(inputs)
+            labels = [labels1, labels2]
+            for i in range(len(labels)):
+                # calculating loss
+                if output_names[i] == 'ECG':
+                    mae, mse, rmse, pcc, ccc = eval_metrics(outputs[i].permute(0, 2, 1).reshape((batch_size * 2560, 2)), labels[i].permute(0, 2, 1).reshape((batch_size * 2560, 2)), val=val)
+                    # loss = (1-ccc).mean() + 2 * relational_loss(outputs[i].permute(0, 2, 1).reshape((batch_size * 2560, 2)), labels[i].permute(0, 2, 1).reshape((batch_size * 2560, 2)))
+                else:
+                    mae, mse, rmse, pcc, ccc = eval_metrics(outputs[i], labels[i], val=val)
+                    # loss = (1-ccc).mean() + 2 * relational_loss(outputs[i], labels[i])
+                rmse = (sum(rmse) / len(rmse))
+                # loss = (1-ccc).mean() + alpha * rmse
+                # loss = rmse
+                # loss = (1-ccc).mean()
+                hist.append([mae, mse, rmse, pcc, ccc, loss])
+                losses.append(loss)
+                logging('Validation', output_names[i], log_writer, loss, mae, mse, rmse, pcc, ccc, epoch, val=val)
+            # loss = beta * losses[0] + gamma * losses[1]
+            loss = sum(losses)
+            log_writer.add_scalar('TotalLoss/{}'.format('Validation'), loss, epoch)
+            del inputs, labels1, labels2
+    return loss
