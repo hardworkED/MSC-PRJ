@@ -1,3 +1,4 @@
+# this is for leave-one-out scheme
 import os
 import random
 from datetime import datetime
@@ -8,6 +9,7 @@ from data.datasets import AMIGOS, series_collate
 from architecture.MainNetwork import MainNetwork
 from utils import *
 
+# define configurations
 torch.backends.cudnn.enabled = False
 loader_kwargs = {'num_workers': 4, 'pin_memory': True, 'shuffle': True, 'drop_last': True}
 os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
@@ -18,11 +20,11 @@ root_path = 'data/face_segments'
 labels_path = 'data/Data_Preprocessed_segmented.json'
 vids_dir = 'data/vids_segments'
 remove_mov = 'data/ignore_mov.json'
-num_class = 2048
-batch_size = 6
+num_class = 4096
+batch_size = 4
 learning_rate = 1e-05
-epochs = 30
-alpha = 2
+epochs = 15
+alpha = 1
 beta = 1
 scale_factor = 1
 gamma = scale_factor
@@ -32,12 +34,14 @@ normalize_val = {
     'ECG': {'min': -2281.0594032292756, 'range': 2340.911172156569 - -2281.0594032292756},
 }
 
+# define folder path for logging
 savemodel = '/scratch/ec22150/models/cccrmse'
 if not os.path.exists(savemodel):
     os.makedirs(savemodel)
 log_dir = '/scratch/ec22150/log/cccrmse'
 log_writer = SummaryWriter(os.path.join(*[log_dir, 'AMIGOS', 'Train', datetime.now().strftime('%b%d_%H-%M-%S')]))
 
+# construct dataset
 x_transform = transforms.Compose([
     transforms.ColorJitter(0.2, 0.2, 0.2),
     transforms.RandomHorizontalFlip(),
@@ -76,8 +80,10 @@ val_dataset = AMIGOS(
     # normalize=False
 )
 
+# start training process
 output_names = ['AR', 'ECG']
 for uid in train_dataset.data.keys():
+    # for continuing training if training is halted
     # if uid in [20, 34, 5, 31, 27, 23, 19, 6, 37, 2, 3, 11, 17, 30, 33, 25, 10, 18, 22, 7, 39, 26, 13, 12, 1, 29, 36, 15, 9, 4, 21, 14]:
     #     continue
     train_idx = [idx[0] for idx in train_dataset.idxs if idx[1] != uid]
@@ -86,6 +92,7 @@ for uid in train_dataset.data.keys():
     actual_train = random.sample(train_idx, len(train_idx) // 5)
     print('Training UID {} with {} samples'.format(uid, len(actual_train)))
 
+    # getting training and validation subset
     train_set = data.Subset(train_dataset, actual_train)
     val_set = data.Subset(val_dataset, val_idx)
     train_loader = torch.utils.data.DataLoader(
@@ -124,6 +131,7 @@ for uid in train_dataset.data.keys():
             with torch.autocast(device.type):
                 outputs = model(inputs)
                 labels = [labels1, labels2]
+                # calculating loss
                 for i in range(len(labels)):
                     if output_names[i] == 'ECG':
                         mae, mse, rmse, pcc, ccc = eval_metrics(outputs[i].permute(0, 2, 1).reshape((batch_size * 2560, 2)), labels[i].permute(0, 2, 1).reshape((batch_size * 2560, 2)))
@@ -132,9 +140,9 @@ for uid in train_dataset.data.keys():
                         mae, mse, rmse, pcc, ccc = eval_metrics(outputs[i], labels[i])
                         # loss = (1-ccc).mean() + 2 * relational_loss(outputs[i], labels[i])
                     # calculating loss
-                    # loss = (1-ccc).mean() + alpha * rmse
+                    loss = (1-ccc).mean() + alpha * rmse
                     # loss = rmse
-                    loss = (1-ccc).mean()
+                    # loss = (1-ccc).mean()
                     losses.append(loss)
 
                     logging('Train-{}'.format(uid), output_names[i], log_writer, loss, mae, mse, rmse, pcc, ccc, iter_idx)

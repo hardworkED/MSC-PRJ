@@ -61,7 +61,7 @@ def vid_to_frames(root_path, dst_dir):
             # removing [P11_18, P13_58, P39_10] for different number of segments from stated
             if '.mov' not in filename or 'P11_18' in filename or 'P13_58' in filename or 'P39_10' in filename:
                 continue
-            # special for video_id=20 
+            # special process for video_id=20 
             vid_len_process = 19 if '_20_' in filename else 20
     
             vid_path = os.path.join(class_path, filename)
@@ -104,7 +104,7 @@ def data_preprocessed(data_dir, data_preprocessed_path, json_filename):
     with open(os.path.join(data_dir, json_filename), 'w') as f:
         json.dump(dt, f)
 
-# downsampling ecg to match video fps rate
+# segmenting ecg to match video segments
 def ecg_segmentation(file_path):
     with open(file_path, 'r') as f:
         dt = json.load(f)
@@ -125,7 +125,7 @@ def ecg_segmentation(file_path):
     with open('{}_{}.json'.format(save_file_path, 'segmented'), 'w') as f:
         json.dump(dt, f)
 
-# not recommended
+# not recommended - results differ by a lot
 # downsampling ecg to match video fps rate
 def ecg_downsampling(file_path, new_freq=25):
     with open(file_path, 'r') as f:
@@ -141,6 +141,7 @@ def ecg_downsampling(file_path, new_freq=25):
         json.dump(dt, f)
 
 # crop face from frames and resize to 224 x 224
+# face detection model
 class FastMTCNN(object):
     def __init__(self, stride, resize=1, *args, **kwargs):
         self.stride = stride
@@ -179,6 +180,7 @@ class FastMTCNN(object):
             torch.cuda.empty_cache() 
         return faces
 
+# detect faces with FastMTCNN
 def face_detection_fm(root_path, dst_dir, device, filter=''):
     check_dir(dst_dir)
     fast_mtcnn = FastMTCNN(
@@ -216,6 +218,7 @@ def face_detection_fm(root_path, dst_dir, device, filter=''):
                 del imgs, faces
             torch.cuda.empty_cache()
 
+# counting number of frames for each segments
 def count_frames(root_path):
     dt = {}
     for class_name in os.listdir(root_path):
@@ -244,7 +247,8 @@ def ignore_mov(vids_dir, face_dir):
                 ret.append(q)
     return ret
 
-# processing too slow
+# not recommended - processing too slow
+# face detection using MTCNN
 from mtcnn import MTCNN
 def face_detection(root_path, dst_dir):
     check_dir(dst_dir)

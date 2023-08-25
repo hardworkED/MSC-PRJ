@@ -8,8 +8,9 @@ from data.datasets import AMIGOS, series_collate
 from architecture.MainNetwork import MainNetwork
 from utils import *
 
+# define configurations
 os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
-torch.cuda.set_device(0)
+torch.cuda.set_device(1)
 torch.backends.cudnn.enabled = False
 loader_kwargs = {'num_workers': 4, 'pin_memory': True, 'shuffle': True, 'drop_last': True}
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -20,17 +21,18 @@ remove_mov = 'data/ignore_mov.json'
 num_class = 4096
 batch_size = 4
 learning_rate = 1e-05
-epochs = 30
-alpha = 2
+epochs = 15
+alpha = 1
 beta = 1
 scale_factor = 1
-gamma = scale_factor
+gamma = 1
 downsample = 8
 normalize_val = {
     'AR': {'min': -0.42818420244970845, 'range': 0.40530026133943436 - -0.42818420244970845},
     'ECG': {'min': -2281.0594032292756, 'range': 2340.911172156569 - -2281.0594032292756},
 }
 
+# construct dataset
 x_transform = transforms.Compose([
     transforms.ColorJitter(0.2, 0.2, 0.2),
     transforms.RandomHorizontalFlip(),
@@ -69,7 +71,8 @@ val_dataset = AMIGOS(
     # normalize=False
 )
 
-mode = 'ccc'
+# define folder path for logging
+mode = 'cccrmse'
 savemodel = 'models/' + mode
 if not os.path.exists(savemodel):
     os.makedirs(savemodel)
@@ -80,12 +83,13 @@ output_names = ['AR', 'ECG']
 idxs = [uid for uid in train_dataset.data.keys()]
 idxs.sort()
 train_uids = idxs[:(len(idxs) // 5) * 4]
-# train_uids = random.sample(idxs, (len(idxs) // 5) * 4)
-# select 20% samples from each training uid
-actual_train = []
-for tidx in train_uids:
-    samples = [idx[0] for idx in train_dataset.idxs if idx[1] == tidx]
-    actual_train.extend(random.sample(samples, len(samples) // 5))
+# select 40% samples from each training uid
+# actual_train = []
+# for tidx in train_uids:
+#     samples = [idx[0] for idx in train_dataset.idxs if idx[1] == tidx]
+#     actual_train.extend(random.sample(samples, (len(samples) // 5) * 2))
+# getting 100% training samples
+actual_train = [idx[0] for idx in train_dataset.idxs if idx[1] in train_uids]
 random.shuffle(actual_train)
 val_idx = [idx[0] for idx in train_dataset.idxs if idx[1] not in train_uids]
 print('Training UIDs {} with {} samples'.format(train_uids, len(actual_train)))
@@ -127,6 +131,7 @@ for epoch in range(epochs):
         with torch.autocast(device.type):
             outputs = model(inputs)
             labels = [labels1, labels2]
+            # calculating loss
             for i in range(len(labels)):
                 if output_names[i] == 'ECG':
                     mae, mse, rmse, pcc, ccc = eval_metrics(outputs[i].permute(0, 2, 1).reshape((batch_size * 2560, 2)), labels[i].permute(0, 2, 1).reshape((batch_size * 2560, 2)))
@@ -135,10 +140,9 @@ for epoch in range(epochs):
                     mae, mse, rmse, pcc, ccc = eval_metrics(outputs[i], labels[i])
                     # loss = (1-ccc).mean() + 2 * relational_loss(outputs[i], labels[i])
                 # calculating loss
-                # loss = (1-ccc).mean() + alpha * rmse
+                loss = (1-ccc).mean() + alpha * rmse
                 # loss = rmse
                 # loss = (1-ccc).mean()
-                loss = (1-ccc).mean()
                 losses.append(loss)
 
                 logging('Train', output_names[i], log_writer, loss, mae, mse, rmse, pcc, ccc, iter_idx)
@@ -182,9 +186,11 @@ for epoch in range(epochs):
     ))
     log_writer.flush()
     print('\n')
+    # release GPU memory
     # del losses, y_pred_AR, y_true_AR, y_pred_ECG, y_true_ECG
     # torch.cuda.empty_cache()
     loss_hist.append(loss)
+    # save model if its current minimum loss
     if loss_hist[-1] == min(loss_hist):
         torch.save({
             'epoch': epoch,

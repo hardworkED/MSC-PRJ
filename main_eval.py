@@ -1,4 +1,4 @@
-# to be continue
+# this is for leave-one-out scheme
 import os
 import random
 from datetime import datetime
@@ -9,6 +9,7 @@ from data.datasets import AMIGOS, series_collate
 from architecture.MainNetwork import MainNetwork
 from utils import *
 
+# define configurations
 torch.backends.cudnn.enabled = False
 loader_kwargs = {'num_workers': 4, 'pin_memory': True, 'shuffle': True, 'drop_last': True}
 os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
@@ -21,8 +22,8 @@ remove_mov = 'data/ignore_mov.json'
 num_class = 4096
 batch_size = 4
 learning_rate = 1e-05
-epochs = 20
-alpha = 2
+epochs = 15
+alpha = 1
 beta = 1
 scale_factor = 1
 gamma = scale_factor
@@ -32,12 +33,14 @@ normalize_val = {
     'ECG': {'min': -2281.0594032292756, 'range': 2340.911172156569 - -2281.0594032292756},
 }
 
+# define folder path for logging
 savemodel = '/scratch/ec22150/cccN/models/'
 if not os.path.exists(savemodel):
     os.makedirs(savemodel)
 log_dir = '/scratch/ec22150/cccN/log'
 log_writer = SummaryWriter(os.path.join(*[log_dir, 'AMIGOS', 'Test', datetime.now().strftime('%b%d_%H-%M-%S_eval')]))
 
+# construct dataset
 x_transform = transforms.Compose([
     transforms.Normalize([0.4168, 0.3074, 0.2607], [0.2426, 0.1997, 0.1870])
 ])
@@ -58,6 +61,7 @@ val_dataset = AMIGOS(
     # normalize=False
 )
 
+# get model
 model_lst = os.listdir(savemodel)
 model_lst = [os.path.join(savemodel, fname) for fname in model_lst]
 model = MainNetwork(num_class).to(device)

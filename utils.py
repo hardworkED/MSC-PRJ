@@ -11,15 +11,12 @@ import matplotlib.pyplot as plt
 
 
 def relational_loss(features, labels):
-    # print(features.shape, features.T.shape)
-    # print(labels.shape, labels.T.shape)
     labels = F.normalize(labels)
     labels = torch.matmul(labels, labels.T)
 
     features = F.normalize(features, dim=1)
     similarity_matrix = torch.matmul(features, features.T)
 
-    # discard the main diagonal from both: labels and similarities matrix
     mask = torch.eye(labels.shape[0], dtype=torch.bool).cuda()
     labels = labels[~mask].view(labels.shape[0], -1)
     similarity_matrix = similarity_matrix[~mask].view(similarity_matrix.shape[0], -1)
@@ -113,6 +110,7 @@ def eval_dataloader(model_path, val_dataset, batch_size, loader_kwargs, uid=None
     print('AMIGO {}: Test samples: {}'.format(uid, len(test_loader)))
     return test_loader
 
+# for leave-one-out scheme
 @torch.no_grad()
 def run_val(model, test_loader, batch_size):
     y_pred_AR = torch.Tensor().cuda()
@@ -132,13 +130,14 @@ def run_val(model, test_loader, batch_size):
             del inputs, labels1, labels2
     return y_pred_AR, y_true_AR, y_pred_ECG, y_true_ECG
 
+# for leave-one-out scheme
 def val_log(log_writer, alpha, scale_factor, y_pred_ARs, y_true_ARs, y_pred_ECGs, y_true_ECGs, idx=0, uid='', val=False):
     losses = []
     # AR
     mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ARs, y_true_ARs, val=val)
     # calculating loss
-    # loss = (1-ccc).mean() + alpha * (sum(rmse) / len(rmse))
-    loss = (sum(rmse) / len(rmse))
+    loss = (1-ccc).mean() + alpha * (sum(rmse) / len(rmse))
+    # loss = (sum(rmse) / len(rmse))
     # loss = (1-ccc).mean()
     # loss = (1-ccc).mean() + 2 * relational_loss(y_pred_ARs, y_true_ARs)
     losses.append(loss)
@@ -147,8 +146,8 @@ def val_log(log_writer, alpha, scale_factor, y_pred_ARs, y_true_ARs, y_pred_ECGs
     # ECG
     mae, mse, rmse, pcc, ccc = eval_metrics(y_pred_ECGs, y_true_ECGs, val=val)
     # calculating loss
-    # loss = (1-ccc).mean() + alpha * (sum(rmse) / len(rmse))
-    loss = (sum(rmse) / len(rmse))
+    loss = (1-ccc).mean() + alpha * (sum(rmse) / len(rmse))
+    # loss = (sum(rmse) / len(rmse))
     # loss = (1-ccc).mean()
     # loss = (1-ccc).mean() + 2 * relational_loss(y_pred_ECGs, y_true_ECGs)
     losses.append(loss)
@@ -182,12 +181,14 @@ def run_val2(model, test_loader, batch_size, epoch, log_writer, alpha=1, val=Fal
                 # calculating loss
                 if output_names[i] == 'ECG':
                     mae, mse, rmse, pcc, ccc = eval_metrics(outputs[i].permute(0, 2, 1).reshape((batch_size * 2560, 2)), labels[i].permute(0, 2, 1).reshape((batch_size * 2560, 2)), val=val)
+                    # loss = (sum(rmse) / len(rmse))
                     # loss = (1-ccc).mean() + 2 * relational_loss(outputs[i].permute(0, 2, 1).reshape((batch_size * 2560, 2)), labels[i].permute(0, 2, 1).reshape((batch_size * 2560, 2)))
                 else:
                     mae, mse, rmse, pcc, ccc = eval_metrics(outputs[i], labels[i], val=val)
+                    # loss = (1-ccc).mean()
                     # loss = (1-ccc).mean() + 2 * relational_loss(outputs[i], labels[i])
-                # loss = (1-ccc).mean() + alpha * (sum(rmse) / len(rmse))
-                loss = (sum(rmse) / len(rmse))
+                loss = (1-ccc).mean() + alpha * (sum(rmse) / len(rmse))
+                # loss = (sum(rmse) / len(rmse))
                 # loss = (1-ccc).mean()
                 hist[i].append([mae, mse, rmse, pcc, ccc, loss])
         # logging
